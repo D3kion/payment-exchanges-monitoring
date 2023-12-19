@@ -6,17 +6,49 @@ import { ByBitParser } from './bybit.parser'
 
 const currencySrv = new CurrencyService()
 const ratesSrv = new ExchangeRateService()
-const bybitParser = new ByBitParser(currencySrv)
+const bybitParser = new ByBitParser()
 
 main()
 new CronJob('*/5 * * * *', main, null, true, 'Europe/Moscow')
 
 async function main() {
-    const bestRates = await bybitParser.getBestExchangeRates()
-    const ratesWithCommission = await ratesSrv.getRatesWithCommision(bestRates)
-    console.log(bestRates)
+    try {
+        const fiats = await currencySrv.getFiats()
+        const cryptos = await currencySrv.getCryptos()
+        console.log(
+            fiats.map((x) => x.providerAlias).filter(Boolean),
+            cryptos.map((x) => x.providerAlias).filter(Boolean)
+        )
 
-    for (let name in bestRates) {
-        ratesSrv.updateRate(name, bestRates[name], ratesWithCommission[name])
+        for await (const fiat of fiats) {
+            const fiatName = fiat.providerAlias
+            if (!fiatName) continue
+            for await (const crypto of cryptos) {
+                const cryptoName = crypto.providerAlias
+                if (!cryptoName) continue
+
+                const bestRateSell = await bybitParser.getBestExchangeRate(
+                    'SELL',
+                    fiatName,
+                    cryptoName
+                )
+
+                console.log(cryptoName, fiatName, bestRateSell)
+                // TODO: commission
+                ratesSrv.updateRate(crypto, fiat, bestRateSell)
+
+                const bestRateBuy =
+                    (await bybitParser.getBestExchangeRate(
+                        'BUY',
+                        fiatName,
+                        cryptoName
+                    )) || 1 / bestRateSell
+                console.log(fiatName, cryptoName, bestRateBuy)
+                // TODO: commission
+                ratesSrv.updateRate(fiat, crypto, bestRateBuy)
+            }
+        }
+    } catch (err) {
+        console.error(err)
     }
 }

@@ -1,16 +1,21 @@
-import { DB } from 'payment-datacloud'
+import { Currency, DB } from 'payment-datacloud'
 
 export class CurrencyService {
-    async getFiatNames(): Promise<Array<string>> {
-        const currencies = await DB.currency.findMany({
+    async getFiats(): Promise<Currency[]> {
+        return DB.currency.findMany({
             where: {
                 type: 'FIAT',
                 // TODO: autoUpdate flag
             },
         })
+    }
 
-        // TODO: check if prod is ok with that
-        // return currencies.map((c) => c.name)
-        return ['KZT']
+    async getCryptos(): Promise<Currency[]> {
+        return DB.currency.findMany({
+            where: {
+                type: 'CRYPTO',
+                // TODO: autoUpdate flag
+            },
+        })
     }
 }
