@@ -20,6 +20,7 @@ async function main() {
             cryptos.map((x) => x.providerAlias).filter(Boolean)
         )
 
+        const t0 = performance.now()
         for await (const fiat of fiats) {
             const fiatName = fiat.providerAlias
             if (!fiatName) continue
@@ -48,6 +49,8 @@ async function main() {
                 ratesSrv.updateRate(fiat, crypto, bestRateBuy)
             }
         }
+        const secs = Math.round((performance.now() - t0) / 1000)
+        console.log(`Parsing time: ${~~(secs / 60)}m ${secs % 60}s`)
     } catch (err) {
         console.error(err)
     }
