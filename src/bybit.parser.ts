@@ -6,7 +6,7 @@ export class ByBitParser {
 
     constructor() {}
 
-    async getBestExchangeRate(
+    async getAvgExchangeRate(
         type: 'BUY' | 'SELL',
         fiat: 'RUB' | 'KZT' | string,
         crypto: 'USDT' | 'BTC' | 'ETH' | 'USDC' | string
@@ -17,7 +17,7 @@ export class ByBitParser {
             userId: '',
             payment: [], // banks
             side: type === 'BUY' ? '1' : '0',
-            size: '10',
+            size: '20',
             page: '1',
             amount: '',
             authMaker: false,
@@ -27,19 +27,8 @@ export class ByBitParser {
         const data = res.data.result.items as Array<any> | undefined
         if (!data) throw new Error("Can't get exchange rates")
 
-        const best = data.find((pair, idx) =>
-            this.isBestExchangeRate(
-                Number(pair.price),
-                Number(data[idx + 1].price)
-            )
-        )
-        return Number(best.price)
-    }
-
-    private isBestExchangeRate(upPrice: number, downPrice: number): Boolean {
-        const difference = upPrice - downPrice
-        const averagePrice = (upPrice + downPrice) / 2
-
-        return averagePrice * this.diffPercent > difference
+        const slice = data.slice(5, 20).filter(Boolean)
+        const sum = slice.reduce((prev, pair) => prev + Number(pair.price), 0)
+        return Number((sum / slice.length).toFixed(2))
     }
 }

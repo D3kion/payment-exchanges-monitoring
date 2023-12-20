@@ -3,6 +3,7 @@ import { CronJob } from 'cron'
 import { CurrencyService } from './currency.service'
 import { ExchangeRateService } from './exchange-rate.service'
 import { ByBitParser } from './bybit.parser'
+import { Currency } from 'payment-datacloud'
 
 const currencySrv = new CurrencyService()
 const ratesSrv = new ExchangeRateService()
@@ -21,32 +22,9 @@ async function main() {
         )
 
         const t0 = performance.now()
-        for await (const fiat of fiats) {
-            const fiatName = fiat.providerAlias
-            if (!fiatName) continue
-            for await (const crypto of cryptos) {
-                const cryptoName = crypto.providerAlias
-                if (!cryptoName) continue
-
-                const bestRateSell = await bybitParser.getBestExchangeRate(
-                    'SELL',
-                    fiatName,
-                    cryptoName
-                )
-
-                console.log(cryptoName, fiatName, bestRateSell)
-                // TODO: commission
-                ratesSrv.updateRate(crypto, fiat, bestRateSell)
-
-                const bestRateBuy =
-                    (await bybitParser.getBestExchangeRate(
-                        'BUY',
-                        fiatName,
-                        cryptoName
-                    )) || 1 / bestRateSell
-                console.log(fiatName, cryptoName, bestRateBuy)
-                // TODO: commission
-                ratesSrv.updateRate(fiat, crypto, bestRateBuy)
+        for (const fiat of fiats) {
+            for (const crypto of cryptos) {
+                await getAndUpdateRate(fiat, crypto)
             }
         }
         const secs = Math.round((performance.now() - t0) / 1000)
@@ -54,4 +32,29 @@ async function main() {
     } catch (err) {
         console.error(err)
     }
+}
+
+async function getAndUpdateRate(fiat: Currency, crypto: Currency) {
+    const fiatName = fiat.providerAlias
+    const cryptoName = crypto.providerAlias
+    if (!fiatName || !cryptoName) return
+
+    const bestRateSell = await bybitParser.getAvgExchangeRate(
+        'SELL',
+        fiatName,
+        cryptoName
+    )
+
+    console.log(cryptoName, fiatName, bestRateSell)
+    // TODO: commission?
+    ratesSrv.updateRate(crypto, fiat, bestRateSell)
+
+    const bestRateBuy = await bybitParser.getAvgExchangeRate(
+        'BUY',
+        fiatName,
+        cryptoName
+    )
+    console.log(fiatName, cryptoName, bestRateBuy)
+    // TODO: commission?
+    ratesSrv.updateRate(fiat, crypto, bestRateBuy)
 }
